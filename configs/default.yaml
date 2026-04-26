@@ -1,0 +1,32 @@
+device: "mps"
+
+paths:
+  market1501: "data/market1501"
+  mot17: "data/mot17"
+  wildtrack: "data/wildtrack"
+  checkpoints: "outputs/checkpoints"
+  outputs: "outputs"
+
+detection:
+  model: "yolov8n.pt"
+  conf_threshold: 0.5
+  iou_threshold: 0.45
+  person_class_id: 0
+
+tracking:
+  max_age: 30
+  min_hits: 3
+  iou_threshold: 0.3
+
+reid:
+  backbone: "resnet50"
+  embedding_dim: 512
+  batch_size: 64
+  epochs: 60
+  lr: 0.0003
+  loss: "triplet"
+  margin: 0.3
+
+cross_camera:
+  similarity_threshold: 0.7
+  use_faiss: false

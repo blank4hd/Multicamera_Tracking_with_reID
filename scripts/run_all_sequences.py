@@ -1,0 +1,102 @@
+"""Run SORT tracking on MOT17 train sequences and save MOT-format predictions."""
+
+from __future__ import annotations
+
+import argparse
+import time
+from pathlib import Path
+
+import cv2
+from tqdm import tqdm
+
+from src.detection import PersonDetector
+from src.evaluation import write_mot_results
+from src.tracking import SORTTracker
+
+MOT17_TRAIN_SEQUENCES = [
+    "MOT17-02-FRCNN",
+    "MOT17-04-FRCNN",
+    "MOT17-05-FRCNN",
+    "MOT17-09-FRCNN",
+    "MOT17-10-FRCNN",
+    "MOT17-11-FRCNN",
+    "MOT17-13-FRCNN",
+]
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run SORT on all MOT17 train sequences")
+    parser.add_argument("--mot17-dir", type=Path, default=Path("data/MOT17/train"))
+    parser.add_argument("--output-dir", type=Path, default=Path("outputs/predictions/SORT"))
+    parser.add_argument("--model", type=str, default="yolov8n.pt")
+    parser.add_argument("--conf", type=float, default=0.4)
+    parser.add_argument("--iou", type=float, default=0.3)
+    parser.add_argument("--max-age", type=int, default=30)
+    parser.add_argument("--min-hits", type=int, default=3)
+    parser.add_argument("--sequences", nargs="+", default=MOT17_TRAIN_SEQUENCES)
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    detector = PersonDetector(
+        model_name=args.model,
+        conf_threshold=args.conf,
+        iou_threshold=args.iou,
+    )
+
+    total_frames = 0
+    total_start = time.time()
+
+    for seq_name in args.sequences:
+        print(f"\n=== Running on {seq_name} ===")
+        tracker = SORTTracker(
+            max_age=args.max_age,
+            min_hits=args.min_hits,
+            iou_threshold=args.iou,
+        )
+
+        img_dir = args.mot17_dir / seq_name / "img1"
+        frame_paths = sorted(img_dir.glob("*.jpg"))
+        if not frame_paths:
+            raise FileNotFoundError(f"No frames found for sequence '{seq_name}' in {img_dir}")
+
+        tracks_per_frame: dict[int, list] = {}
+        seen_track_ids: set[int] = set()
+
+        seq_start = time.time()
+        for frame_idx, frame_path in enumerate(tqdm(frame_paths, desc=seq_name), start=1):
+            frame = cv2.imread(str(frame_path))
+            if frame is None:
+                raise RuntimeError(f"Failed to read frame: {frame_path}")
+
+            detections = detector.detect(frame)
+            tracks = tracker.update(detections, frame_idx=frame_idx)
+            tracks_per_frame[frame_idx] = tracks
+            seen_track_ids.update(track.track_id for track in tracks)
+
+        seq_time = time.time() - seq_start
+        num_frames = len(frame_paths)
+        total_frames += num_frames
+        fps = (num_frames / seq_time) if seq_time > 0 else 0.0
+
+        output_file = args.output_dir / f"{seq_name}.txt"
+        write_mot_results(output_file, tracks_per_frame)
+
+        print(
+            f"{seq_name}: frames={num_frames}, unique_ids={len(seen_track_ids)}, "
+            f"fps={fps:.2f}"
+        )
+
+    total_time = time.time() - total_start
+    overall_fps = (total_frames / total_time) if total_time > 0 else 0.0
+    print(
+        f"\nFinished all sequences: total_frames={total_frames}, "
+        f"total_time={total_time:.2f}s, overall_fps={overall_fps:.2f}"
+    )
+
+
+if __name__ == "__main__":
+    main()

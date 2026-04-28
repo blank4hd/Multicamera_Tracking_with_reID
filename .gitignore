@@ -61,9 +61,7 @@ ENV/
 
 # Project artifacts and large model files
 data/**
-outputs/checkpoints/**
-outputs/logs/**
-outputs/videos/**
+outputs/**
 *.pt
 *.pth
 *.onnx

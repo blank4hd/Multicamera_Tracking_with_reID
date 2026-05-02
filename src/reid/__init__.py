@@ -19,5 +19,6 @@ from .evaluate import (
 	evaluate_market1501,
 	run_market1501_evaluation,
 )
+from .feature_extractor import ReIDFeatureExtractor
 from .train import TrainConfig, make_warmup_step_lr, train, train_one_epoch
 

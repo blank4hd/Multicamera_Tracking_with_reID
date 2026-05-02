@@ -1,4 +1,4 @@
-"""Run single-camera SORT tracking on frame folders."""
+"""Run single-camera tracking on frame folders."""
 
 from __future__ import annotations
 
@@ -11,41 +11,34 @@ from tqdm import tqdm
 
 from src.detection import PersonDetector
 from src.evaluation import write_mot_results
-from src.tracking import SORTTracker, draw_tracks
+from src.reid import ReIDFeatureExtractor
+from src.tracking import DeepSORTTracker, SORTTracker, draw_tracks
+from src.utils.device import get_device
 
 
 def _collect_frame_paths(input_dir: Path) -> list[Path]:
     valid_exts = {".jpg", ".jpeg", ".png"}
-    frame_paths = [
-        path for path in input_dir.iterdir() if path.is_file() and path.suffix.lower() in valid_exts
-    ]
+    frame_paths = [path for path in input_dir.iterdir() if path.is_file() and path.suffix.lower() in valid_exts]
     return sorted(frame_paths)
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run SORT tracking on a directory of image frames")
+    parser = argparse.ArgumentParser(description="Run tracking on a directory of image frames")
     parser.add_argument("--input", required=True, help="Path to input frame directory")
-    parser.add_argument(
-        "--output-dir",
-        default="outputs/tracking_demo",
-        help="Directory where annotated frames are written",
-    )
-    parser.add_argument(
-        "--output-mot",
-        default="outputs/tracking_demo/results.txt",
-        help="Path to output MOT-format .txt results file",
-    )
-    parser.add_argument("--model", default="yolov8n.pt", help="YOLO model path/name")
+    parser.add_argument("--output-dir", default="outputs/tracking_demo", help="Directory where annotated frames are written")
+    parser.add_argument("--output-mot", default="outputs/tracking_demo/results.txt", help="Path to output MOT-format .txt results file")
+    parser.add_argument("--tracker", choices=["sort", "deepsort"], default="sort", help="Tracking mode to run")
+    parser.add_argument("--reid-checkpoint", default="outputs/reid/best.pth", help="Re-ID checkpoint for DeepSORT")
+    parser.add_argument("--embedding-dim", type=int, default=256, help="Re-ID embedding dimension")
+    parser.add_argument("--model", default="yolov8m.pt", help="YOLO model path/name")
     parser.add_argument("--conf", type=float, default=0.4, help="Detection confidence threshold")
-    parser.add_argument("--iou", type=float, default=0.3, help="SORT IoU association threshold")
-    parser.add_argument("--max-age", type=int, default=30, help="SORT max_age parameter")
-    parser.add_argument("--min-hits", type=int, default=3, help="SORT min_hits parameter")
+    parser.add_argument("--iou", type=float, default=0.3, help="SORT IoU association threshold / DeepSORT fallback IoU threshold")
+    parser.add_argument("--iou-gate", type=float, default=0.0, help="DeepSORT cascade IoU gate threshold")
+    parser.add_argument("--appearance-thresh", type=float, default=0.2, help="DeepSORT cosine distance threshold")
+    parser.add_argument("--max-age", type=int, default=30, help="Max frames without update before deletion")
+    parser.add_argument("--min-hits", type=int, default=3, help="Consecutive matches needed for confirmation")
     parser.add_argument("--max-frames", type=int, default=None, help="Maximum number of frames to process")
-    parser.add_argument(
-        "--no-save-frames",
-        action="store_true",
-        help="Skip saving annotated frames",
-    )
+    parser.add_argument("--no-save-frames", action="store_true", help="Skip saving annotated frames")
     return parser
 
 
@@ -66,8 +59,25 @@ def main() -> None:
     if not args.no_save_frames:
         output_dir.mkdir(parents=True, exist_ok=True)
 
+    device = get_device()
+    print(f"Using device: {device}")
+
     detector = PersonDetector(model_name=args.model, conf_threshold=args.conf)
-    tracker = SORTTracker(max_age=args.max_age, min_hits=args.min_hits, iou_threshold=args.iou)
+
+    if args.tracker == "deepsort":
+        checkpoint = Path(args.reid_checkpoint)
+        print(f"Loading Re-ID model from {checkpoint}...")
+        feature_extractor = ReIDFeatureExtractor(checkpoint, embedding_dim=args.embedding_dim, device=device)
+        tracker = DeepSORTTracker(
+            feature_extractor=feature_extractor,
+            max_age=args.max_age,
+            n_init=args.min_hits,
+            iou_gate_threshold=args.iou_gate,
+            appearance_threshold=args.appearance_thresh,
+            iou_threshold_fallback=args.iou,
+        )
+    else:
+        tracker = SORTTracker(max_age=args.max_age, min_hits=args.min_hits, iou_threshold=args.iou)
 
     tracks_per_frame: dict[int, list] = {}
     unique_track_ids: set[int] = set()
@@ -82,7 +92,10 @@ def main() -> None:
             continue
 
         detections = detector.detect(frame)
-        tracks = tracker.update(detections, frame_idx=frame_idx)
+        if args.tracker == "deepsort":
+            tracks = tracker.update(frame, detections, frame_idx=frame_idx)
+        else:
+            tracks = tracker.update(detections, frame_idx=frame_idx)
 
         tracks_per_frame[frame_idx] = tracks
         total_emitted_tracks += len(tracks)

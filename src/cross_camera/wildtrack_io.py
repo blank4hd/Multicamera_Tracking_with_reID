@@ -9,7 +9,9 @@ from pathlib import Path
 import numpy as np
 
 WILDTRACK_NUM_CAMERAS = 7
-WILDTRACK_FRAME_STEP = 5  # frames are named 00000000, 00000005, 00000010, ...
+# Frame alignment relies on sorted PNG filenames matching sorted annotation JSON files.
+# Wildtrack stores pre-subsampled images (every 5th frame of the original 60 fps stream)
+# in Image_subsets/; no additional step is applied when iterating frames here.
 
 
 @dataclass

@@ -25,7 +25,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", default="outputs/wildtrack/per_camera")
     parser.add_argument("--model", default="yolov8m.pt")
     parser.add_argument("--conf", type=float, default=0.4)
-    parser.add_argument("--iou", type=float, default=0.3)
+    parser.add_argument("--nms-iou", type=float, default=0.45,
+                        help="YOLO NMS IoU threshold.")
+    parser.add_argument("--assoc-iou", type=float, default=0.30,
+                        help="Tracker association IoU threshold.")
     parser.add_argument("--iou-gate", type=float, default=0.0)
     parser.add_argument("--appearance-thresh", type=float, default=0.25)
     parser.add_argument("--max-age", type=int, default=30)
@@ -54,7 +57,8 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     start_time = time.time()
-    detector = PersonDetector(model_name=args.model, device=device, conf_threshold=args.conf, iou_threshold=args.iou)
+    detector = PersonDetector(model_name=args.model, device=device,
+                              conf_threshold=args.conf, iou_threshold=args.nms_iou)
     feature_extractor = ReIDFeatureExtractor(
         checkpoint_path=args.reid_checkpoint,
         embedding_dim=args.embedding_dim,
@@ -72,7 +76,7 @@ def main() -> None:
             n_init=args.min_hits,
             iou_gate_threshold=args.iou_gate,
             appearance_threshold=args.appearance_thresh,
-            iou_threshold_fallback=args.iou,
+            iou_threshold_fallback=args.assoc_iou,
             gallery_size=30,
         )
 
@@ -85,8 +89,7 @@ def main() -> None:
                 raise FileNotFoundError(f"Failed to read frame: {frame_path}")
             detections = detector.detect(frame)
             tracks = tracker.update(frame, detections, frame_idx=fidx)
-            if tracks:
-                tracks_per_frame[fidx] = tracks
+            tracks_per_frame[fidx] = tracks  # store even when empty — preserves frame-index alignment
 
         all_track_data = tracker.get_all_track_data()
         filtered_track_ids = {

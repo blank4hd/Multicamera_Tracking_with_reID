@@ -41,12 +41,16 @@ coverage.xml
 *.cover
 *.py,cover
 .pytest_cache/
+pytest-cache-files-*/
 
 # Jupyter
 .ipynb_checkpoints/
 
 # Environments
 .env
+.env.*
+!.env.example
+.envrc
 .venv/
 venv/
 env/
@@ -58,6 +62,8 @@ ENV/
 
 # OS files
 .DS_Store
+~$*
+*.tmp
 
 # Project artifacts and large model files
 data/**

@@ -9,12 +9,22 @@ from pathlib import Path
 import numpy as np
 
 # NumPy 1.24+ removed np.float, np.int, np.bool, np.object aliases.
-# TrackEval still uses np.float internally; restore the aliases before importing it.
+# TrackEval still references them; patch only for the duration of the import,
+# then remove the aliases so the rest of the process sees clean NumPy.
+_np_patches: list[str] = []
 for _alias, _target in [("float", float), ("int", int), ("bool", bool), ("object", object)]:
     if not hasattr(np, _alias):
         setattr(np, _alias, _target)
+        _np_patches.append(_alias)
 
-import trackeval
+import trackeval  # noqa: E402
+
+for _alias in _np_patches:
+    try:
+        delattr(np, _alias)
+    except AttributeError:
+        pass
+del _np_patches, _alias, _target
 
 
 def prepare_trackeval_layout(

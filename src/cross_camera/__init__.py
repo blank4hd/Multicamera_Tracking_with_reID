@@ -2,7 +2,7 @@
 from .wildtrack_io import (
 	WildtrackBBox, parse_annotation_file, load_all_annotations,
 	annotations_to_per_camera_per_frame, list_camera_frames, list_annotation_files,
-	WILDTRACK_NUM_CAMERAS, WILDTRACK_FRAME_STEP,
+	WILDTRACK_NUM_CAMERAS,
 )
 from .matcher import (
 	LocalTrack, CrossCameraMatcher, load_camera_tracks,

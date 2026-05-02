@@ -28,7 +28,13 @@ def write_mot_results(path: str | Path, tracks_per_frame: dict[int, list[Tracked
 
 
 def read_mot_results(path: str | Path) -> dict[int, list[dict]]:
-    """Read MOT Challenge CSV format into frame-indexed track dictionaries."""
+    """Read MOT Challenge CSV format into frame-indexed track dictionaries.
+
+    Convention: MOT files are 1-indexed (track_id >= 1).  This function
+    converts to 0-indexed track IDs to match the internal tracker convention
+    used by write_mot_results and all tracker classes.  Do not pass raw
+    external MOT files here without first verifying they are 1-indexed.
+    """
     input_path = Path(path)
     content = input_path.read_text(encoding="utf-8")
 

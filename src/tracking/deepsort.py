@@ -160,6 +160,7 @@ class DeepSORTTracker:
         self.frame_count = 0
         self._next_id = 0
         self._track_history = {}
+        KalmanBoxTracker.count = 0
 
     def _new_track_id(self) -> int:
         tid = self._next_id
@@ -168,6 +169,8 @@ class DeepSORTTracker:
 
     def update(self, frame, detections, frame_idx: int | None = None) -> list[TrackedBox]:
         self.frame_count += 1
+        if frame_idx is None:
+            frame_idx = self.frame_count
 
         if detections:
             det_bboxes = np.asarray([det.bbox for det in detections], dtype=np.float32)

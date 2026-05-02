@@ -14,9 +14,8 @@ dependencies = [
     "scipy",
     "opencv-python",
     "pillow",
-    "pyyaml",
     "tqdm",
-    "faiss-cpu",
+    "trackeval",
     "scikit-learn",
     "matplotlib",
 ]
@@ -27,6 +26,9 @@ dev = [
     "ruff",
     "ipykernel",
     "jupyter",
+]
+faiss = [
+    "faiss-cpu",
 ]
 
 [tool.setuptools.packages.find]

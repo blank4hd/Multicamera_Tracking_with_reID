@@ -42,12 +42,14 @@ def save_checkpoint(
 	extra: dict | None = None,
 ) -> None:
 	"""Save full training state to path."""
+	embedding_dim = getattr(model, "embedding_dim", None)
 	state = {
 		"model": model.state_dict(),
 		"optimizer": optimizer.state_dict(),
 		"scheduler": scheduler.state_dict() if scheduler is not None else None,
 		"epoch": epoch,
 		"best_rank1": best_rank1,
+		"embedding_dim": embedding_dim,
 		"extra": extra or {},
 	}
 	Path(path).parent.mkdir(parents=True, exist_ok=True)

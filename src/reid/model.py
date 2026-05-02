@@ -7,6 +7,7 @@ from torchvision.models import resnet50, ResNet50_Weights
 class ReIDModel(nn.Module):
     def __init__(self, num_classes=0, embedding_dim=256, pretrained=True, last_stride=1):
         super().__init__()
+        self.embedding_dim = embedding_dim
         weights = ResNet50_Weights.IMAGENET1K_V2 if pretrained else None
         backbone = resnet50(weights=weights)
 

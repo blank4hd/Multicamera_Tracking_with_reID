@@ -36,9 +36,18 @@ class ReIDFeatureExtractor:
         self.batch_size = batch_size
         self.embedding_dim = embedding_dim
 
-        self.model = ReIDModel(num_classes=0, embedding_dim=embedding_dim, pretrained=False, last_stride=1)
         state = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-        self.model.load_state_dict(state["model"], strict=False)
+        ckpt_dim = state.get("embedding_dim", embedding_dim)
+        if ckpt_dim != embedding_dim:
+            raise ValueError(
+                f"Checkpoint embedding_dim={ckpt_dim} does not match requested embedding_dim={embedding_dim}. "
+                "Update --embedding-dim or use the correct checkpoint."
+            )
+        model_state = state["model"]
+        classifier_weight = model_state.get("classifier.weight")
+        ckpt_num_classes = int(classifier_weight.shape[0]) if classifier_weight is not None else 0
+        self.model = ReIDModel(num_classes=ckpt_num_classes, embedding_dim=embedding_dim, pretrained=False, last_stride=1)
+        self.model.load_state_dict(model_state, strict=True)
         self.model.to(self.device)
         self.model.eval()
 

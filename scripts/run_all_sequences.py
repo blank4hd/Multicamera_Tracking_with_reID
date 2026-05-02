@@ -35,7 +35,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--embedding-dim", type=int, default=256)
     parser.add_argument("--model", type=str, default="yolov8n.pt")
     parser.add_argument("--conf", type=float, default=0.4)
-    parser.add_argument("--iou", type=float, default=0.3)
+    parser.add_argument("--nms-iou", type=float, default=0.45,
+                        help="YOLO NMS IoU threshold for detection (suppresses overlapping boxes).")
+    parser.add_argument("--assoc-iou", type=float, default=0.30,
+                        help="Tracker association IoU threshold (SORT gate / DeepSORT IoU fallback).")
     parser.add_argument("--iou-gate", type=float, default=0.0)
     parser.add_argument("--appearance-thresh", type=float, default=0.2)
     parser.add_argument("--max-age", type=int, default=30)
@@ -51,7 +54,8 @@ def main() -> None:
     device = get_device()
     print(f"Using device: {device}")
 
-    detector = PersonDetector(model_name=args.model, conf_threshold=args.conf, iou_threshold=args.iou)
+    detector = PersonDetector(model_name=args.model, device=device,
+                              conf_threshold=args.conf, iou_threshold=args.nms_iou)
 
     feature_extractor = None
     if args.tracker == "deepsort":
@@ -70,10 +74,10 @@ def main() -> None:
                 n_init=args.min_hits,
                 iou_gate_threshold=args.iou_gate,
                 appearance_threshold=args.appearance_thresh,
-                iou_threshold_fallback=args.iou,
+                iou_threshold_fallback=args.assoc_iou,
             )
         else:
-            tracker = SORTTracker(max_age=args.max_age, min_hits=args.min_hits, iou_threshold=args.iou)
+            tracker = SORTTracker(max_age=args.max_age, min_hits=args.min_hits, iou_threshold=args.assoc_iou)
 
         img_dir = args.mot17_dir / seq_name / "img1"
         frame_paths = sorted(img_dir.glob("*.jpg"))

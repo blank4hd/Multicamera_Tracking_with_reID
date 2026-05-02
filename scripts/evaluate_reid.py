@@ -30,9 +30,12 @@ def main() -> None:
 
 	query_ds = Market1501Dataset(args.data_root, split="query", transform=build_eval_transform())
 	gallery_ds = Market1501Dataset(args.data_root, split="gallery", transform=build_eval_transform())
-	model = ReIDModel(num_classes=0, embedding_dim=args.embedding_dim, pretrained=False, last_stride=1)
 	state = torch.load(args.checkpoint, map_location=device, weights_only=False)
-	model.load_state_dict(state["model"], strict=False)
+	model_state = state["model"]
+	classifier_weight = model_state.get("classifier.weight")
+	ckpt_num_classes = int(classifier_weight.shape[0]) if classifier_weight is not None else 0
+	model = ReIDModel(num_classes=ckpt_num_classes, embedding_dim=args.embedding_dim, pretrained=False, last_stride=1)
+	model.load_state_dict(model_state, strict=True)
 	model.to(device)
 	model.eval()
 

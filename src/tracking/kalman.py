@@ -93,6 +93,8 @@ class KalmanBoxTracker:
 
         if self.x[2, 0] <= _EPS:
             self.x[2, 0] = _EPS
+        if self.x[3, 0] < 0.1:
+            self.x[3, 0] = 0.1
 
         self.age += 1
         if self.time_since_update > 0:

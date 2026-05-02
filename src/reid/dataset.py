@@ -135,7 +135,11 @@ class RandomIdentitySampler(Sampler):
                 if len(indices) >= self.num_instances:
                     chosen = random.sample(indices, self.num_instances)
                 else:
-                    chosen = random.choices(indices, k=self.num_instances)
+                    # Pad with random repeats only for the shortage — avoids
+                    # sampling an identity as its own positive/negative pair.
+                    shortage = self.num_instances - len(indices)
+                    chosen = indices + random.choices(indices, k=shortage)
+                    random.shuffle(chosen)
                 batch_indices.extend(chosen)
 
         return iter(batch_indices)

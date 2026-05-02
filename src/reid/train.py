@@ -35,7 +35,7 @@ class TrainConfig:
 	weight_decay: float = 5e-4
 	warmup_epochs: int = 10
 	warmup_factor: float = 0.01
-	lr_steps: tuple = (40, 70)
+	lr_steps: tuple = (30, 50)
 	lr_gamma: float = 0.1
 	eval_every: int = 5
 	num_workers: int = 4

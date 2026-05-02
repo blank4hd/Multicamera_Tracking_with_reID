@@ -62,7 +62,7 @@ def main() -> None:
     device = get_device()
     print(f"Using device: {device}")
 
-    detector = PersonDetector(model_name=args.model, conf_threshold=args.conf)
+    detector = PersonDetector(model_name=args.model, device=device, conf_threshold=args.conf)
 
     if args.tracker == "deepsort":
         checkpoint = Path(args.reid_checkpoint)

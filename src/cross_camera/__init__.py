@@ -14,3 +14,10 @@ from .evaluator import (
 	compute_identity_metrics,
 	evaluate_wildtrack,
 )
+from .visualize import (
+	color_for_global_id,
+	draw_global_id_boxes,
+	draw_global_id_boxes_with_palette,
+	HIGHLIGHT_PALETTE_BGR,
+	make_grid_2x4,
+)

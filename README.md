@@ -157,11 +157,16 @@ python3 demo_inference.py --image-a path/to/A.jpg --image-b path/to/B.jpg
 
 ---
 
-## Reproducing the Full Pipeline (with datasets)
+## Reproducing the Full Pipeline (SKIP THIS:TIME CONSUMING)
 
-The quick demo above does not require any datasets and is sufficient
-for grading. To reproduce the complete training and evaluation pipeline,
-the three datasets must be downloaded separately:
+The quick demo above does not require any datasets and is sufficient for
+grading. This section documents how to reproduce the full training and
+evaluation pipeline, who want to verify the numbers in the
+performance tables.
+
+### Datasets required
+
+The three datasets must be downloaded separately:
 
 | Dataset     | Use                               | Source                                              |
 | ----------- | --------------------------------- | --------------------------------------------------- |
@@ -169,7 +174,7 @@ the three datasets must be downloaded separately:
 | Wildtrack   | Multi-camera evaluation           | https://www.epfl.ch/labs/cvlab/data/data-wildtrack/ |
 | Market-1501 | Re-ID training and evaluation     | https://www.kaggle.com/datasets/pengcw1/market-1501 |
 
-Place the datasets under `data/` matching this structure:
+Place them under `data/` matching this structure:
 
 ```
 data/
@@ -184,24 +189,200 @@ data/
     └── query/
 ```
 
-Install the full project dependencies:
+### Setup
+
+Install the full project dependencies (separate from the demo's lightweight
+environment):
 
 ```bash
-pip install -e ":[dev]"
+pip install -e ".[dev]"
 ```
 
-Key scripts (all support `--help`):
+This installs PyTorch, Ultralytics (YOLOv8), TrackEval, and other tools
+needed for training and evaluation.
 
-| Script                                | Purpose                                    |
-| ------------------------------------- | ------------------------------------------ |
-| `scripts/train_reid.py`               | Train Re-ID on Market-1501                 |
-| `scripts/evaluate_reid.py`            | Evaluate Re-ID on Market-1501              |
-| `scripts/run_all_sequences.py`        | Run SORT or DeepSORT across MOT17          |
-| `scripts/evaluate.py`                 | Evaluate predictions with TrackEval        |
-| `scripts/run_wildtrack_per_camera.py` | Per-camera tracking on Wildtrack           |
-| `scripts/evaluate_wildtrack.py`       | Cross-camera matching with threshold sweep |
-| `scripts/make_mot17_video.py`         | Render single-camera demo video            |
-| `scripts/make_wildtrack_video.py`     | Render multi-camera grid demo video        |
+### Step 1 — Train the Re-ID model (optional, ~46 minutes)
+
+This step trains the deployed 60-epoch Re-ID model from scratch on
+Market-1501. **You can skip this step** and use the trained model from
+Hugging Face for all downstream steps; everything below works either way.
+
+```bash
+python3 scripts/train_reid.py \
+    --epochs 60 \
+    --eval-every 5 \
+    --output-dir outputs/reid
+```
+
+Output: `outputs/reid/best.pth` (the model checkpoint), and
+`outputs/reid/train_log.csv` (per-epoch loss and validation metrics).
+
+To also reproduce the 120-epoch ablation:
+
+```bash
+python3 scripts/train_reid.py \
+    --epochs 120 \
+    --eval-every 10 \
+    --output-dir outputs/reid_120ep
+```
+
+### Step 2 — Evaluate the Re-ID model on Market-1501 (~1 minute)
+
+Computes mAP and Rank-{1,5,10} on the Market-1501 test set.
+
+```bash
+python3 scripts/evaluate_reid.py \
+    --checkpoint outputs/reid/best.pth
+```
+
+Expected output: mAP ~73.7, Rank-1 ~89.3 (matches the table above).
+
+### Step 3 — Run single-camera tracking on MOT17 (~5 minutes per variant)
+
+The report compares three tracker variants on all 7 MOT17 train sequences.
+Run them in sequence; each saves to a separate output directory.
+
+**Variant A — SORT (motion only, no Re-ID):**
+
+```bash
+python3 scripts/run_all_sequences.py \
+    --tracker sort \
+    --output-dir outputs/predictions/SORT
+```
+
+**Variant B — DeepSORT with 60-epoch Re-ID (deployed model):**
+
+```bash
+python3 scripts/run_all_sequences.py \
+    --tracker deepsort \
+    --reid-checkpoint outputs/reid/best.pth \
+    --output-dir outputs/predictions/DeepSORT_v2 \
+    --appearance-thresh 0.25
+```
+
+**Variant C — DeepSORT with 120-epoch Re-ID (ablation):**
+
+```bash
+python3 scripts/run_all_sequences.py \
+    --tracker deepsort \
+    --reid-checkpoint outputs/reid_120ep/best.pth \
+    --output-dir outputs/predictions/DeepSORT_v3 \
+    --appearance-thresh 0.25
+```
+
+Each run produces 7 MOT-format prediction text files (one per sequence)
+in the chosen output directory.
+
+### Step 4 — Evaluate MOT17 tracking with TrackEval (~30 seconds per variant)
+
+Run TrackEval on each tracker's predictions. The summary tables
+(HOTA, MOTA, IDF1, IDSW) are written to `outputs/trackeval/`.
+
+```bash
+python3 scripts/evaluate.py \
+    --predictions-dir outputs/predictions/SORT \
+    --tracker-name SORT \
+    --output-root outputs/trackeval
+
+python3 scripts/evaluate.py \
+    --predictions-dir outputs/predictions/DeepSORT_v2 \
+    --tracker-name DeepSORT_v2 \
+    --output-root outputs/trackeval
+
+python3 scripts/evaluate.py \
+    --predictions-dir outputs/predictions/DeepSORT_v3 \
+    --tracker-name DeepSORT_v3 \
+    --output-root outputs/trackeval
+```
+
+Each command prints the per-sequence and overall metrics. The expected
+overall numbers match the MOT17 table above.
+
+### Step 5 — Run per-camera tracking on Wildtrack (~5 minutes per variant)
+
+The Wildtrack pipeline runs DeepSORT independently on each of the 7 cameras,
+optionally filtering predictions to the annotated zone using camera
+calibrations.
+
+**Variant A — Baseline (no ground-plane filter, 60-epoch Re-ID):**
+
+```bash
+python3 scripts/run_wildtrack_per_camera.py \
+    --reid-checkpoint outputs/reid/best.pth \
+    --output-dir outputs/wildtrack/per_camera
+```
+
+**Variant B — With ground-plane filter, 60-epoch Re-ID:**
+
+```bash
+python3 scripts/run_wildtrack_per_camera.py \
+    --reid-checkpoint outputs/reid/best.pth \
+    --output-dir outputs/wildtrack/per_camera_gp \
+    --ground-plane-filter
+```
+
+**Variant C — With ground-plane filter, 120-epoch Re-ID:**
+
+```bash
+python3 scripts/run_wildtrack_per_camera.py \
+    --reid-checkpoint outputs/reid_120ep/best.pth \
+    --output-dir outputs/wildtrack/per_camera_final \
+    --ground-plane-filter
+```
+
+Each variant produces 7 prediction files (`C1.txt` through `C7.txt`) plus
+`.npz` files containing the appearance embeddings used for cross-camera
+matching.
+
+### Step 6 — Evaluate cross-camera matching on Wildtrack (~30 seconds per variant)
+
+Sweeps a range of similarity thresholds and reports IDF1 / IDP / IDR for
+each. The optimal threshold and corresponding IDF1 are the headline numbers
+in the cross-camera table.
+
+```bash
+python3 scripts/evaluate_wildtrack.py \
+    --per-camera-dir outputs/wildtrack/per_camera \
+    --sweep 0.25 0.30 0.35 0.40 0.45 \
+    --output outputs/wildtrack/sweep_baseline.txt
+
+python3 scripts/evaluate_wildtrack.py \
+    --per-camera-dir outputs/wildtrack/per_camera_gp \
+    --sweep 0.25 0.30 0.35 0.40 0.45 \
+    --output outputs/wildtrack/sweep_gp.txt
+
+python3 scripts/evaluate_wildtrack.py \
+    --per-camera-dir outputs/wildtrack/per_camera_final \
+    --sweep 0.25 0.30 0.35 0.40 0.45 \
+    --output outputs/wildtrack/sweep_final.txt
+```
+
+Expected best-threshold IDF1 values: 14.7 (baseline), 17.0 (with filter),
+18.7 (with filter + 120-ep Re-ID).
+
+### Step 7 — Render demo videos (optional, ~2 minutes per video)
+
+These commands render the annotated videos used in the submitted
+demonstration video. They are not required to verify quantitative results.
+
+**Single-camera demo (MOT17):**
+
+```bash
+python3 scripts/make_mot17_video.py \
+    --sequence MOT17-04-FRCNN \
+    --predictions outputs/predictions/DeepSORT_v3 \
+    --output outputs/mot17_demo_MOT17-04-FRCNN.mp4
+```
+
+**Multi-camera demo (Wildtrack):**
+
+```bash
+python3 scripts/make_wildtrack_video.py \
+    --per-camera-dir outputs/wildtrack/per_camera_final \
+    --output outputs/wildtrack/cross_camera_demo.mp4 \
+    --start-frame 5 \
+    --threshold 0.40
+```
 
 ---
 

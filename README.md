@@ -33,6 +33,10 @@ The trained Re-ID model is hosted on Hugging Face for direct access.
 
 ---
 
+## Architecture Diagram
+
+![My Image](data/architecture.png)
+
 ## Quick Demo (4 steps, ~30 seconds)
 
 This demonstrates the trained Re-ID model on two example pedestrian images.

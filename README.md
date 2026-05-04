@@ -35,7 +35,7 @@ The trained Re-ID model is hosted on Hugging Face for direct access.
 
 ## Architecture Diagram
 
-![My Image](data/architecture.png)
+![Architecture Flow](images/architecture.png)
 
 ## Quick Demo (4 steps, ~30 seconds)
 
@@ -161,14 +161,14 @@ python3 demo_inference.py --image-a path/to/A.jpg --image-b path/to/B.jpg
 
 ---
 
-## Reproducing the Full Pipeline (SKIP THIS:TIME CONSUMING)
+## Reproducing the Full Pipeline (SKIP THIS STEP:TIME CONSUMING)
 
 The quick demo above does not require any datasets and is sufficient for
 grading. This section documents how to reproduce the full training and
 evaluation pipeline, who want to verify the numbers in the
 performance tables.
 
-### Datasets required
+### Datasets required (in GB sizes)
 
 The three datasets must be downloaded separately:
 
@@ -387,6 +387,18 @@ python3 scripts/make_wildtrack_video.py \
     --start-frame 5 \
     --threshold 0.40
 ```
+
+---
+
+## Sample Outputs
+
+### Detection
+
+![Detection](images/detection_img.jpg)
+
+### Tracking
+
+![Tracking](images/tracker_img.jpg)
 
 ---
 

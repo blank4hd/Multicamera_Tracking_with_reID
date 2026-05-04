@@ -1,4 +1,11 @@
 # Expose Wildtrack IO and cross-camera matcher utilities
+from .calibration import (
+	CameraCalibration, CAMERA_NAME_BY_ID,
+	load_camera_calibration, load_all_calibrations,
+)
+from .ground_plane import (
+	ZoneBounds, GroundPlaneFilter, DEFAULT_WILDTRACK_ZONE,
+)
 from .wildtrack_io import (
 	WildtrackBBox, parse_annotation_file, load_all_annotations,
 	annotations_to_per_camera_per_frame, list_camera_frames, list_annotation_files,

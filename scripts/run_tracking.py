@@ -30,7 +30,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--tracker", choices=["sort", "deepsort"], default="sort", help="Tracking mode to run")
     parser.add_argument("--reid-checkpoint", default="outputs/reid/best.pth", help="Re-ID checkpoint for DeepSORT")
     parser.add_argument("--embedding-dim", type=int, default=256, help="Re-ID embedding dimension")
-    parser.add_argument("--model", default="yolov8m.pt", help="YOLO model path/name")
+    parser.add_argument(
+        "--model",
+        default="yolov8m.pt",
+        help=(
+            "YOLO model name. Default yolov8m.pt; yolo26l.pt is also supported but "
+            "requires a lower conf threshold (~0.2) to match recall."
+        ),
+    )
     parser.add_argument("--conf", type=float, default=0.4, help="Detection confidence threshold")
     parser.add_argument("--iou", type=float, default=0.3, help="SORT IoU association threshold / DeepSORT fallback IoU threshold")
     parser.add_argument("--iou-gate", type=float, default=0.0, help="DeepSORT cascade IoU gate threshold")

@@ -23,7 +23,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--wildtrack-dir", default="data/Wildtrack")
     parser.add_argument("--reid-checkpoint", default="outputs/reid/best.pth")
     parser.add_argument("--output-dir", default="outputs/wildtrack/per_camera")
-    parser.add_argument("--model", default="yolov8m.pt")
+    parser.add_argument(
+        "--model",
+        default="yolov8m.pt",
+        help=(
+            "YOLO model name. Default yolov8m.pt; yolo26l.pt is also supported but "
+            "requires a lower conf threshold (~0.2) to match recall."
+        ),
+    )
     parser.add_argument("--conf", type=float, default=0.4)
     parser.add_argument("--iou", type=float, default=0.3)
     parser.add_argument("--iou-gate", type=float, default=0.0)
@@ -32,6 +39,40 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--min-hits", type=int, default=3)
     parser.add_argument("--embedding-dim", type=int, default=256)
     parser.add_argument("--min-track-length", type=int, default=10)
+    parser.add_argument(
+        "--ground-plane-filter",
+        action="store_true",
+        help="Filter detections to those whose foot projects onto the Wildtrack annotated zone.",
+    )
+    parser.add_argument(
+        "--calibrations-dir",
+        default="data/Wildtrack/calibrations",
+        help="Path to Wildtrack calibrations root.",
+    )
+    parser.add_argument(
+        "--zone-x-min",
+        type=float,
+        default=None,
+        help="Override zone X minimum (cm). Defaults to DEFAULT_WILDTRACK_ZONE.",
+    )
+    parser.add_argument(
+        "--zone-x-max",
+        type=float,
+        default=None,
+        help="Override zone X maximum (cm). Defaults to DEFAULT_WILDTRACK_ZONE.",
+    )
+    parser.add_argument(
+        "--zone-y-min",
+        type=float,
+        default=None,
+        help="Override zone Y minimum (cm). Defaults to DEFAULT_WILDTRACK_ZONE.",
+    )
+    parser.add_argument(
+        "--zone-y-max",
+        type=float,
+        default=None,
+        help="Override zone Y maximum (cm). Defaults to DEFAULT_WILDTRACK_ZONE.",
+    )
     parser.add_argument(
         "--cameras",
         nargs="+",
@@ -61,6 +102,23 @@ def main() -> None:
         device=device,
     )
 
+    gp_filter = None
+    if args.ground_plane_filter:
+        from src.cross_camera import GroundPlaneFilter, ZoneBounds, DEFAULT_WILDTRACK_ZONE
+
+        zone = ZoneBounds(
+            x_min=args.zone_x_min if args.zone_x_min is not None else DEFAULT_WILDTRACK_ZONE.x_min,
+            x_max=args.zone_x_max if args.zone_x_max is not None else DEFAULT_WILDTRACK_ZONE.x_max,
+            y_min=args.zone_y_min if args.zone_y_min is not None else DEFAULT_WILDTRACK_ZONE.y_min,
+            y_max=args.zone_y_max if args.zone_y_max is not None else DEFAULT_WILDTRACK_ZONE.y_max,
+        )
+        gp_filter = GroundPlaneFilter(args.calibrations_dir, zone=zone)
+        print(
+            f"Ground-plane filtering enabled. Zone: "
+            f"X=[{zone.x_min:.0f}, {zone.x_max:.0f}], "
+            f"Y=[{zone.y_min:.0f}, {zone.y_max:.0f}] cm"
+        )
+
     total_tracks = 0
     image_subsets_root = wildtrack_dir / "Image_subsets"
 
@@ -84,6 +142,11 @@ def main() -> None:
             if frame is None:
                 raise FileNotFoundError(f"Failed to read frame: {frame_path}")
             detections = detector.detect(frame)
+            if gp_filter is not None:
+                n_before = len(detections)
+                detections = gp_filter.filter_detections(camera_id, detections)
+                # if fidx <= 3:
+                #     print(f"  cam {camera_id} frame {fidx}: {n_before} -> {len(detections)} detections after gp filter")
             tracks = tracker.update(frame, detections, frame_idx=fidx)
             if tracks:
                 tracks_per_frame[fidx] = tracks
@@ -125,7 +188,8 @@ def main() -> None:
         )
 
         total_tracks += len(ids_arr)
-        print(f"C{camera_id + 1}: saved {len(ids_arr)} tracks to {mot_path.name} and {npz_path.name}")
+        suffix = " (gp-filtered)" if gp_filter is not None else ""
+        print(f"C{camera_id + 1}: saved {len(ids_arr)} tracks to {mot_path.name} and {npz_path.name}{suffix}")
 
     elapsed = time.time() - start_time
     print(f"Finished. Saved {total_tracks} tracks across {len(args.cameras)} cameras in {elapsed:.1f}s.")

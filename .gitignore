@@ -46,6 +46,7 @@ coverage.xml
 .ipynb_checkpoints/
 
 # Environments
+demo_env/
 .env
 .venv/
 venv/
@@ -62,6 +63,7 @@ ENV/
 # Project artifacts and large model files
 data/**
 outputs/**
+hf-space/**
 *.pt
 *.pth
 *.onnx

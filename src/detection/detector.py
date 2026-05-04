@@ -60,32 +60,37 @@ class PersonDetector:
 
         self.model = YOLO(self.model_name)
         self.model.to(self.device)
+        # Flag for YOLO26 models which use a one-to-many head selector requiring end2end=False
+        self._is_yolo26 = "yolo26" in str(self.model_name).lower()
 
     def detect(self, frame: np.ndarray) -> list[Detection]:
         """Run detection on a single BGR frame and return person detections."""
-        results = self.model(
-            frame,
+        infer_kwargs = dict(
             conf=self.conf_threshold,
             iou=self.iou_threshold,
             imgsz=self.image_size,
             classes=[self.person_class_id],
             verbose=False,
         )
+        if self._is_yolo26:
+            infer_kwargs["end2end"] = False
+        results = self.model(frame, **infer_kwargs)
         return self._results_to_detections(results[0])
 
     def detect_batch(self, frames: list[np.ndarray]) -> list[list[Detection]]:
         """Run batched detection on a list of BGR frames."""
         if not frames:
             return []
-
-        results = self.model(
-            frames,
+        infer_kwargs = dict(
             conf=self.conf_threshold,
             iou=self.iou_threshold,
             imgsz=self.image_size,
             classes=[self.person_class_id],
             verbose=False,
         )
+        if self._is_yolo26:
+            infer_kwargs["end2end"] = False
+        results = self.model(frames, **infer_kwargs)
         return [self._results_to_detections(result) for result in results]
 
     @staticmethod
@@ -111,7 +116,7 @@ class PersonDetector:
         return detections
 
     def __repr__(self) -> str:
-        return (
+        base = (
             "PersonDetector("
             f"model_name={self.model_name!r}, "
             f"device={self.device!r}, "
@@ -121,3 +126,7 @@ class PersonDetector:
             f"image_size={self.image_size}"
             ")"
         )
+        if self._is_yolo26:
+            # Mention that end2end is disabled for YOLO26 one-to-many head
+            return base[:-1] + ", yolo26_e2e=False)"
+        return base

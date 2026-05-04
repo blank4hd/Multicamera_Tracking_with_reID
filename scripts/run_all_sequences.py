@@ -33,7 +33,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tracker", choices=["sort", "deepsort"], default="sort")
     parser.add_argument("--reid-checkpoint", type=Path, default=Path("outputs/reid/best.pth"))
     parser.add_argument("--embedding-dim", type=int, default=256)
-    parser.add_argument("--model", type=str, default="yolov8n.pt")
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="yolov8m.pt",
+        help=(
+            "YOLO model name. Default yolov8m.pt; yolo26l.pt is also supported but "
+            "requires a lower conf threshold (~0.2) to match recall."
+        ),
+    )
     parser.add_argument("--conf", type=float, default=0.4)
     parser.add_argument("--iou", type=float, default=0.3)
     parser.add_argument("--iou-gate", type=float, default=0.0)

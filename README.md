@@ -89,6 +89,13 @@ The two example images are crops of the same Market-1501 pedestrian
 captured by two different cameras. Same-person pairs typically score
 0.5–0.85 similarity; different-person pairs score below 0.3.
 
+### Testing the model with different person but looking similar
+
+```bash
+source demo_env/bin/activate
+python3 demo_inference.py --image-a examples/person_a.jpg --image-b examples/pair2_a.jpg
+```
+
 ### Compare your own images
 
 After `demo.sh` runs once, the virtual environment persists. Test any
@@ -205,7 +212,7 @@ pip install -e ".[dev]"
 This installs PyTorch, Ultralytics (YOLOv8), TrackEval, and other tools
 needed for training and evaluation.
 
-### Step 1 — Train the Re-ID model (optional, ~46 minutes)
+### Step 1 — Train the Re-ID model (optional)
 
 This step trains the deployed 60-epoch Re-ID model from scratch on
 Market-1501. **You can skip this step** and use the trained model from
@@ -230,7 +237,7 @@ python3 scripts/train_reid.py \
     --output-dir outputs/reid_120ep
 ```
 
-### Step 2 — Evaluate the Re-ID model on Market-1501 (~1 minute)
+### Step 2 — Evaluate the Re-ID model on Market-1501
 
 Computes mAP and Rank-{1,5,10} on the Market-1501 test set.
 
@@ -241,7 +248,7 @@ python3 scripts/evaluate_reid.py \
 
 Expected output: mAP ~73.7, Rank-1 ~89.3 (matches the table above).
 
-### Step 3 — Run single-camera tracking on MOT17 (~5 minutes per variant)
+### Step 3 — Run single-camera tracking on MOT17
 
 The report compares three tracker variants on all 7 MOT17 train sequences.
 Run them in sequence; each saves to a separate output directory.
@@ -277,7 +284,7 @@ python3 scripts/run_all_sequences.py \
 Each run produces 7 MOT-format prediction text files (one per sequence)
 in the chosen output directory.
 
-### Step 4 — Evaluate MOT17 tracking with TrackEval (~30 seconds per variant)
+### Step 4 — Evaluate MOT17 tracking with TrackEval
 
 Run TrackEval on each tracker's predictions. The summary tables
 (HOTA, MOTA, IDF1, IDSW) are written to `outputs/trackeval/`.
@@ -302,7 +309,7 @@ python3 scripts/evaluate.py \
 Each command prints the per-sequence and overall metrics. The expected
 overall numbers match the MOT17 table above.
 
-### Step 5 — Run per-camera tracking on Wildtrack (~5 minutes per variant)
+### Step 5 — Run per-camera tracking on Wildtrack
 
 The Wildtrack pipeline runs DeepSORT independently on each of the 7 cameras,
 optionally filtering predictions to the annotated zone using camera
@@ -338,7 +345,7 @@ Each variant produces 7 prediction files (`C1.txt` through `C7.txt`) plus
 `.npz` files containing the appearance embeddings used for cross-camera
 matching.
 
-### Step 6 — Evaluate cross-camera matching on Wildtrack (~30 seconds per variant)
+### Step 6 — Evaluate cross-camera matching on Wildtrack
 
 Sweeps a range of similarity thresholds and reports IDF1 / IDP / IDR for
 each. The optimal threshold and corresponding IDF1 are the headline numbers
@@ -364,7 +371,7 @@ python3 scripts/evaluate_wildtrack.py \
 Expected best-threshold IDF1 values: 14.7 (baseline), 17.0 (with filter),
 18.7 (with filter + 120-ep Re-ID).
 
-### Step 7 — Render demo videos (optional, ~2 minutes per video)
+### Step 7 — Render demo videos
 
 These commands render the annotated videos used in the submitted
 demonstration video. They are not required to verify quantitative results.
@@ -396,9 +403,13 @@ python3 scripts/make_wildtrack_video.py \
 
 ![Detection](images/detection_img.jpg)
 
-### Tracking
+### Single Camera Tracking
 
 ![Tracking](images/tracker_img.jpg)
+
+### Multi Camera Tracking
+
+![Tracking](images/multitracker1_img.jpg)
 
 ---
 

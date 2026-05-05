@@ -11,6 +11,10 @@ University of Maryland, Spring 2026
 
 ---
 
+## Github Link:
+
+https://github.com/blank4hd/Multicamera_Tracking_with_reID.git
+
 ## Overview
 
 End-to-end multi-camera pedestrian tracking system with five components:
